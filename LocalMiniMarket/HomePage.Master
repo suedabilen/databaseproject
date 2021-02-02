@@ -1,0 +1,43 @@
+<%@ Master Language="C#" AutoEventWireup="true" CodeBehind="HomePage.master.cs" Inherits="LocalMiniMarket.HomePage" %>
+
+<!DOCTYPE html>
+
+<html>
+    <head>
+<title>LocalMiniMarket</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+</head>
+
+<body>
+   
+    <form id="form1" runat="server">
+        <div class="content">
+  <div id="top">
+  </div>
+  <div id="header">
+   
+    <div class="title">
+      <h1>Local Mini Market Interface</h1>
+      <h2>Welcome to database</h2>
+        </div>
+         </div>
+            </div>
+        <div id="subheader">
+    <div id="menu">
+      <ul>
+        <li><a href="Product.aspx">Product</a></li>
+        <li><a href="Customer.aspx">Customer</a></li>
+        <li><a href="Shopping.aspx">Shopping</a></li>
+      </ul>
+    </div>
+  </div>
+        
+        <br />
+        Please enter your employeeID<br />
+        <asp:TextBox ID="TextBox1" runat="server" OnTextChanged="TextBox1_TextChanged"></asp:TextBox>
+        <br />
+        <asp:Button ID="Button1" runat="server" Text="Enter" />
+        
+    </form>
+</body>
+</html>

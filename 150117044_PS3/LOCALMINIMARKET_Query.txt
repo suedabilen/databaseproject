@@ -1,0 +1,357 @@
+
+--index defining
+create nonclustered index index1 on Wholesaler (companyName)
+
+
+select Wholesaler.companyName
+from Wholesaler
+
+
+create nonclustered index index2 on Product (productName)
+
+select Product.productName
+from Product
+
+create nonclustered index index3 on Customer (name)
+
+select Customer.name
+from Customer
+
+--computed sale price column with taking info from coming price column
+
+Update Product 
+Set salePrice = ((comingPrice * 1.08) * 1.20)
+
+Select Product.comingPrice , Product.salePrice
+From Product
+
+--computed paymentAmount column with taking info from coming price and quantity columns
+
+Update Bill
+Set paymentAmount =  (p.comingPrice * quantity)
+From Product p , Bill b
+Where p.ProductID = b.ProductID
+
+Select Bill.paymentAmount 
+From Bill
+
+--check constraint for quantity
+Alter table Shopping
+add check (quantity>=1)
+
+insert into Shopping(ShoppingID,ProductID,quantity)
+values(86,93,0)
+
+--check constraint for stock
+Alter table Product 
+add check (stock>=1)
+
+insert into Product(ProductID,brandName,productType,productName,stock,comingPrice,salePrice)
+values(95,'ülker','junk food','çokonat',0,4.20,5.60)
+
+--unique constraints adding
+Alter table Product
+add unique (productName);
+
+Alter table Wholesaler 
+add unique (brandName);
+
+Alter table Wholesaler 
+add unique (companyName);
+go
+--Views 
+
+Create VIEW [AverageCustomerAge] as 
+Select AVG(ALL c.age) as [avgCustomerAge]
+From Customer c;
+
+go
+
+Select * From AverageCustomerAge;
+go
+--average age of regular customers
+Create VIEW [AvgRegCustomerAge] as 
+Select AVG(ALL c.age) as [avgCustomerAge]
+From Customer c
+Where regularCus='TRUE';
+go
+
+Select * From AvgRegCustomerAge;
+go
+
+--customers with the most purchases
+Create view TopTenCustomer as
+Select TOP 10 si.CustomerID, sum(s.quantity) as totalQuantity
+From Shopping s,Shopping_Info si
+Where s.ShoppingID = si.ShoppingID
+Group by si.CustomerID
+Having sum(s.quantity)>1
+Order by totalQuantity desc
+go
+
+Select * From TopTenCustomer;
+go
+--most purchased products
+Create view TopTenProduct as 
+Select TOP 10 s.ProductID , p.productName,sum(s.quantity) as totalQuantity
+From Shopping s ,Product p
+Where s.ProductID = p.ProductID
+Group by s.ProductID , p.productName
+Order by totalQuantity desc
+go
+
+Select * From TopTenProduct;
+go
+
+--most purchased product types
+Create view TopPurchases as 
+Select TOP 10 p.productType , COUNT(p.productType) as numOfPurchases
+From Product p, Shopping s
+Where p.ProductID = s.ProductID
+Group by p.productType
+Order by numOfPurchases desc
+go
+
+Select * From TopPurchases;
+go
+--counts products by brand names
+Create view countBrands as
+Select p.brandName, Count(p.brandName) as numOfProducts
+From Product p
+Group by p.brandName
+go
+
+Select * from countBrands;
+go
+--brands with most products
+Create view countTopBrands as
+Select TOP 8 p.brandName, Count(p.brandName) as numOfProducts
+From Product p
+Group by p.brandName
+Having COUNT(p.brandName) >= (Select avg(numOfProducts) from countBrands)
+Order by numOfProducts asc
+go
+
+Select * from countTopBrands;
+go
+
+--updatePayment procedure
+Create procedure updatePayment
+as
+Update Bill
+Set paymentAmount =  (p.comingPrice * quantity)
+From Product p , Bill b
+Where p.ProductID = b.ProductID
+go
+
+exec updatePayment;
+Select p.comingPrice,b.quantity,b.paymentAmount from product p,bill b where p.ProductID = b.ProductID;
+
+
+Create Trigger stockIncrease 
+ON Bill
+After Insert
+as
+BEGIN
+declare @productId smallint
+declare @quantity tinyint
+Select @productId = ProductID , @quantity = quantity from inserted
+
+Update Product
+Set stock = stock + @quantity
+Where ProductID = @productId
+exec updatePayment;
+print 'stock increased'
+END;
+--before triggering
+Select * From Product Where Product.ProductID = 15;
+
+Insert into Bill (Bill_ID,ProductID,quantity)
+values (12,15,5)
+go
+
+--after triggering
+Select * From Bill Where Bill.ProductID=15 and Bill.Bill_ID = 12;
+Select * From Product Where Product.ProductID = 15;
+
+Create Trigger stockDecrease
+ON Shopping
+After Insert
+as
+BEGIN
+declare @productId smallint
+declare @quantity tinyint
+Select @productId = ProductID , @quantity = quantity from inserted
+
+Update Product
+Set stock = stock - @quantity
+Where ProductID = @productId
+
+print 'stock decreased'
+END;
+go
+--before
+Select * From Product Where Product.ProductID = 15;
+
+Insert into Shopping(ShoppingID,ProductID,quantity)
+Values(30,15,1)
+go
+--after
+Select * From Shopping Where ShoppingID=30 and ProductID = 15;
+Select * From Product Where Product.ProductID = 15;
+
+
+
+
+Create procedure updateSalePrice
+as 
+Update Product 
+Set salePrice = ((comingPrice * 1.08) * 1.20)
+
+go
+exec updateSalePrice;
+Select product.comingPrice ,product.salePrice from product ;
+
+
+Create procedure womanCustomers
+as
+Select c.name ,c.gender
+From Customer c
+Where gender = 'F'
+go
+
+exec womanCustomers
+
+Create procedure maleCustomers
+as
+Select c.name ,c.gender
+From Customer c
+Where gender = 'M'
+go
+
+exec maleCustomers
+
+Create procedure addProduct
+	@ProductID smallint = NULL,
+	@brandName nvarchar(25)= NULL,
+	@productType nvarchar(25) = NULL,
+	@productName nvarchar(25) = NULL,
+	@stock tinyint = NULL,
+	@comingPrice decimal(4,2) = NULL,
+	@salePrice decimal(4,2) = NULL
+as
+begin
+
+insert into Product(ProductID,brandName,productType,productName,stock,comingPrice)
+values(@ProductID,@brandName,@productType,@productName,@stock,@comingPrice)
+exec updateSalePrice
+end;
+go
+
+exec addProduct
+	@ProductID  = 94,
+	@brandName = 'eti',
+	@productType ='junk food',
+	@productName = 'bitter karam',
+	@stock =5,
+	@comingPrice = 1.60
+go
+Select * From product Where product.ProductID=94;
+Create procedure deleteProduct
+	@ProductID smallint = NULL
+as
+begin
+
+delete from Product
+where Product.ProductID = @ProductID
+end;
+go
+
+exec deleteProduct @ProductID = 94;
+Select * From product Where product.ProductID=94;
+
+Create procedure listbyType 
+as 
+Select distinct p.productType
+From Product p
+Order by p.productType asc
+go
+
+exec listbyType;
+
+Create procedure listbyName
+as
+Select distinct p.productName
+From Product p 
+Order by p.productName asc
+go
+
+exec listbyName;
+
+Create procedure listofCigWholesaler
+as 
+Select w.companyName,w.brandName
+From Wholesaler w
+Where w.type = 'cigarettes'
+Order by w.companyName asc
+go
+
+exec listofCigWholesaler
+
+Create procedure listofJunkWholesaler
+as 
+Select w.companyName,w.brandName
+From Wholesaler w
+Where w.type = 'junk food'
+Order by w.companyName asc
+go
+
+exec listofJunkWholesaler
+
+Create procedure listofBevWholesaler
+as 
+Select w.companyName,w.brandName
+From Wholesaler w
+Where w.type = 'beverages'
+Order by w.companyName asc
+go
+
+exec listofBevWholesaler
+
+Create procedure listofDairyWholesaler
+as 
+Select w.companyName,w.brandName
+From Wholesaler w
+Where w.type = 'dairy product'
+Order by w.companyName asc
+go
+
+exec listofDairyWholesaler
+Create procedure listofDriedWholesaler
+as 
+Select w.companyName,w.brandName
+From Wholesaler w
+Where w.type = 'dried nuts'
+Order by w.companyName asc
+go
+
+exec listofDriedWholesaler
+
+Create procedure mostBusyDay as
+Select top 1 w.arrivalDay,count(companyName) as busyday
+From Wholesaler w
+Group by w.arrivalDay
+order by busyday desc
+go
+
+exec mostBusyDay
+
+--total amount of a bill
+Create View totalAmount as
+Select b.Bill_ID , sum(b.paymentAmount) as totalAmount
+From Bill b
+Group By b.Bill_ID
+go
+ 
+Select * from totalAmount;
+
